@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=460" />
+  <title>SN Power Search</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ══ HEADER ══ -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-icon">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+      </div>
+      <div class="header-text">
+        <div class="header-title">Power Search</div>
+        <div class="header-sub">ServiceNow Query Builder</div>
+      </div>
+    </div>
+    <div class="instance-badge" id="instanceBadge" title="Detected instance">
+      <span class="instance-dot offline" id="instanceDot"></span>
+      <span id="instanceName">no instance</span>
+    </div>
+  </div>
+
+  <!-- ══ NOT-ON-SN WARNING ══ -->
+  <div class="warning-banner" id="warningBanner" style="display:none;">
+    <span class="warning-icon">⚠</span>
+    <div class="warning-text">
+      <strong>No ServiceNow tab detected</strong>
+      Open and log in to a ServiceNow instance first.
+    </div>
+  </div>
+
+  <!-- ══ BODY ══ -->
+  <div class="body">
+
+    <!-- ─────────────────── SECTION: Query Builder ─────────────────── -->
+    <div class="section">
+
+      <!-- TABLE -->
+      <div class="field-row">
+        <div class="field-group" style="flex:1;">
+          <div class="field-label">Table</div>
+          <select id="tableSelect">
+            <option value="">── select table ──</option>
+            <optgroup label="ITSM">
+              <option value="incident">incident</option>
+              <option value="change_request">change_request</option>
+              <option value="problem">problem</option>
+              <option value="sc_request">sc_request</option>
+              <option value="sc_req_item">sc_req_item</option>
+              <option value="sc_task">sc_task</option>
+              <option value="task">task</option>
+            </optgroup>
+            <optgroup label="CMDB">
+              <option value="cmdb_ci">cmdb_ci</option>
+              <option value="cmdb_ci_computer">cmdb_ci_computer</option>
+              <option value="cmdb_ci_server">cmdb_ci_server</option>
+              <option value="cmdb_ci_appl">cmdb_ci_appl</option>
+              <option value="cmdb_ci_service">cmdb_ci_service</option>
+              <option value="sn_agent_cmdb_ci_agent">sn_agent_cmdb_ci_agent</option>
+            </optgroup>
+            <optgroup label="Users &amp; Groups">
+              <option value="sys_user">sys_user</option>
+              <option value="sys_user_group">sys_user_group</option>
+            </optgroup>
+            <optgroup label="Knowledge">
+              <option value="kb_knowledge">kb_knowledge</option>
+            </optgroup>
+            <option value="custom">── custom ──</option>
+          </select>
+        </div>
+        <div class="field-group shrink" id="customTableGroup" style="display:none;min-width:130px;">
+          <div class="field-label">Custom table</div>
+          <input type="text" id="customTableInput" placeholder="table_name" />
+        </div>
+      </div>
+
+      <!-- MULTI-CONDITION CHIPS (hidden until at least 1 condition is added) -->
+      <div class="conditions-container" id="conditionsContainer" style="display:none;">
+        <div class="conditions-header">
+          <span class="field-label" style="margin:0;">
+            Conditions
+            <span class="condition-count-badge" id="conditionCountBadge">0</span>
+          </span>
+          <button id="clearConditionsBtn" class="text-link">clear all</button>
+        </div>
+        <div class="conditions-chips" id="conditionsChips"></div>
+      </div>
+
+      <!-- FIELD + OP -->
+      <div class="field-row">
+        <div class="field-group" style="flex:2;">
+          <div class="field-label">
+            Field
+            <span id="fieldLoadingIndicator" style="display:none;">
+              <span class="spinner"></span>
+            </span>
+            <button class="field-refresh-btn" id="fieldRefreshBtn" title="Refresh fields from ServiceNow">↻</button>
+          </div>
+          <div class="autocomplete-wrap">
+            <input type="text" id="fieldInput" placeholder="Click or type to search fields…" autocomplete="off" />
+            <button class="field-clear-btn" id="fieldClear" title="Clear field">✕</button>
+            <div class="dropdown-list" id="fieldDropdown"></div>
+          </div>
+        </div>
+        <div class="field-group shrink" style="min-width:84px;">
+          <div class="field-label">Op</div>
+          <select id="operatorSelect">
+            <option value="LIKE">~ LIKE</option>
+            <option value="=">= equals</option>
+            <option value="!=">≠ not eq</option>
+            <option value="STARTSWITH">^= starts</option>
+            <option value="ENDSWITH">$= ends</option>
+            <option value="CONTAINS">⊂ contains</option>
+            <option value="ISEMPTY">∅ empty</option>
+            <option value="ISNOTEMPTY">¬∅ not empty</option>
+            <option value="IN">∈ IN list</option>
+            <option value="GT">&gt; gt</option>
+            <option value="LT">&lt; lt</option>
+            <option value="GTE">&gt;= gte</option>
+            <option value="LTE">&lt;= lte</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- VALUE + ADD CONDITION button -->
+      <div class="field-row" style="align-items:flex-end;gap:5px;">
+        <div class="field-group" style="flex:1;">
+          <div class="field-label">Value</div>
+          <input type="text" id="valueInput" placeholder="Search value…" />
+        </div>
+        <!-- AND / OR toggle — only visible once ≥1 condition has been committed -->
+        <div class="join-toggle" id="joinToggle" style="display:none;" title="How this condition joins the previous one">
+          <button class="join-btn and active" data-join="AND">AND</button>
+          <button class="join-btn or" data-join="OR">OR</button>
+        </div>
+        <button class="add-cond-btn" id="addConditionBtn" title="Commit condition and build another (Ctrl+Enter)">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Add
+        </button>
+      </div>
+
+      <!-- REFERENCE FIELD RESOLVER (only visible when a reference field is selected) -->
+      <div class="ref-resolver-group" id="refResolverGroup" style="display:none;">
+        <div class="field-label">
+          <span class="ref-badge">REF</span>
+          Resolve name → sys_id
+        </div>
+        <div class="ref-resolver-wrap">
+          <input type="text" id="refNameInput" placeholder="Type a display name to search…" autocomplete="off" />
+          <div class="ref-results" id="refResults" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- ADVANCED QUERY -->
+      <div class="field-group">
+        <div class="field-label" style="display:flex; justify-content:space-between; align-items:center;">
+          <span>Advanced <span class="label-hint">(appended with ^)</span></span>
+          <button id="clearAdvBtn" class="text-link">clear</button>
+        </div>
+        <textarea id="advancedQuery" rows="1" placeholder="active=true^state=1^assigned_to=javascript:gs.getUserID()"></textarea>
+      </div>
+
+    </div><!-- /section -->
+
+    <!-- ─────────────────── SECTION: Templates ─────────────────── -->
+    <div class="section">
+
+      <div class="section-toolbar">
+        <span class="field-label" style="margin:0;">
+          Recent &amp; Saved
+          <button id="clearRecentBtn" class="text-link" style="display:none;margin-left:5px;">clear recent</button>
+        </span>
+        <div class="toolbar-actions">
+          <button id="importTemplatesBtn" class="icon-action-btn" title="Import templates from JSON">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Import
+          </button>
+          <button id="exportTemplatesBtn" class="icon-action-btn" title="Export saved templates as JSON">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Export
+          </button>
+          <button id="saveTemplateBtn" class="save-btn" title="Save current search as a template">＋ Save</button>
+        </div>
+      </div>
+
+      <!-- Save name prompt (inline) -->
+      <div class="save-prompt" id="savePrompt" style="display:none;">
+        <input type="text" id="saveNameInput" placeholder="Name this template…" maxlength="40" />
+        <button id="confirmSaveBtn" class="prompt-btn confirm" title="Save (Enter)">✓</button>
+        <button id="cancelSaveBtn"  class="prompt-btn cancel"  title="Cancel (Esc)">✕</button>
+      </div>
+
+      <!-- Import JSON panel -->
+      <div class="import-modal" id="importModal" style="display:none;">
+        <div class="field-label" style="margin-bottom:4px;">Paste exported JSON to import templates</div>
+        <textarea id="importJson" rows="3" placeholder='{"savedTemplates": [...]}'></textarea>
+        <div class="import-actions">
+          <button id="cancelImportBtn"  class="prompt-btn cancel"  style="width:auto;padding:3px 10px;font-size:10px;">Cancel</button>
+          <button id="confirmImportBtn" class="prompt-btn confirm" style="width:auto;padding:3px 10px;font-size:10px;">Import</button>
+        </div>
+      </div>
+
+      <div class="templates-row" id="recentChips">
+        <span class="empty-hint">your recent searches will appear here</span>
+      </div>
+      <div class="templates-row" id="savedChips" style="margin-top:4px;">
+        <span class="empty-hint">click ＋ Save to keep a search</span>
+      </div>
+
+    </div><!-- /section -->
+
+    <!-- ─────────────────── SECTION: Query Preview ─────────────────── -->
+    <div class="section section-preview">
+      <div class="field-label">Query preview</div>
+      <div class="query-preview" id="queryPreview">
+        <span style="color:var(--text-muted);">—</span>
+        <button class="copy-btn" id="copyQueryBtn" title="Copy full URL to clipboard">⧉</button>
+      </div>
+    </div>
+
+    <div id="statusArea"></div>
+
+    <div class="action-row">
+      <button class="search-btn" id="searchBtn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+        </svg>
+        Search
+        <span class="btn-kbd">↵ Enter</span>
+      </button>
+      <button class="clear-all-btn" id="clearAllBtn" title="Clear all fields and conditions">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
+        </svg>
+        Clear
+      </button>
+    </div>
+
+  </div><!-- /body -->
+
+  <!-- ══ FOOTER ══ -->
+  <div class="footer">
+    <div class="footer-hint">
+      <span class="kbd">Tab</span> nav &nbsp;
+      <span class="kbd">↑↓</span> list &nbsp;
+      <span class="kbd">Ctrl+↵</span> add cond
+    </div>
+    <div class="footer-version">v1.5.0</div>
+  </div>
+
+  <!-- ══ CREDIT ══ -->
+  <div class="credit-bar">
+    Made with <span class="credit-heart">❤️</span> by <span class="credit-name">Raunak Kapoor</span>
+  </div>
+
+  <script src="search-core.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
